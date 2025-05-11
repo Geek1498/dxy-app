@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+
+class BondYieldService {
+    public function getWeeklyYields() {
+        $seriesIds = ['GS10', 'GS2', 'GS30']; // 10Y, 2Y, 30Y
+        $endDate = now()->format('Y-m-d');
+        $startDate = now()->subWeek()->format('Y-m-d');
+        $results = [];
+
+        foreach ($seriesIds as $id) {
+            $response = Http::get('https://api.stlouisfed.org/fred/series/observations', [
+                'series_id' => $id,
+                'api_key' => env('FRED_API_KEY'),
+                'file_type' => 'json',
+                'observation_start' => $startDate,
+                'observation_end' => $endDate,
+            ]);
+
+            $results[$id] = $response->json()['observations'] ?? [];
+        }
+
+        return $results;
+    }
+}

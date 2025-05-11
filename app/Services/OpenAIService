@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+
+class OpenAIService {
+    public function summarizeYields(array $data) {
+        $prompt = "Here’s the weekly U.S. Treasury bond yields data:\n\n" . json_encode($data) .
+                  "\n\nSummarize this week's movement and investor sentiment.";
+
+        $response = Http::withToken(env('OPENAI_API_KEY'))->post('https://api.openai.com/v1/chat/completions', [
+            'model' => 'gpt-4',
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are a financial analyst.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ]);
+
+        return $response['choices'][0]['message']['content'] ?? 'No summary generated.';
+    }
+}
