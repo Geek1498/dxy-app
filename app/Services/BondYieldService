@@ -3,15 +3,19 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
-class BondYieldService {
-    public function getWeeklyYields() {
-        $seriesIds = ['GS10', 'GS2', 'GS30']; // 10Y, 2Y, 30Y
+class BondYieldService
+{
+    protected array $seriesIds = ['GS2' => '2Y', 'GS10' => '10Y', 'GS30' => '30Y'];
+
+    public function getWeeklyYields(): array
+    {
         $endDate = now()->format('Y-m-d');
         $startDate = now()->subWeek()->format('Y-m-d');
         $results = [];
 
-        foreach ($seriesIds as $id) {
+        foreach ($this->seriesIds as $id => $label) {
             $response = Http::get('https://api.stlouisfed.org/fred/series/observations', [
                 'series_id' => $id,
                 'api_key' => env('FRED_API_KEY'),
@@ -20,9 +24,33 @@ class BondYieldService {
                 'observation_end' => $endDate,
             ]);
 
-            $results[$id] = $response->json()['observations'] ?? [];
+            if (!$response->ok()) {
+                Log::error("FRED API request failed for series: {$id}", [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                continue;
+            }
+
+            $observations = $response->json()['observations'] ?? [];
+
+            if (count($observations) < 2) {
+                Log::warning("Not enough data returned for {$id}");
+                continue;
+            }
+
+            $first = $observations[0];
+            $last = end($observations);
+
+            $results[$label] = [
+                'start' => $first['value'],
+                'end' => $last['value'],
+                'start_date' => $first['date'],
+                'end_date' => $last['date'],
+            ];
         }
 
         return $results;
     }
 }
+
